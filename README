@@ -1,0 +1,6 @@
+To build debian/ubuntu packages, you may need these packages:
+  fakeroot
+  debhelper
+  dh-make
+  devscripts
+  build-essential

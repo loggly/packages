@@ -1,0 +1,43 @@
+#!/usr/bin/make -f
+# -*- makefile -*-
+# Sample debian/rules that uses debhelper.
+# This file was originally written by Joey Hess and Craig Small.
+# As a special exception, when this file is copied by dh-make into a
+# dh-make output file, you may use that output file without restriction.
+# This special exception was added by Craig Small in version 0.37 of dh-make.
+
+# Uncomment this to turn on verbose mode.
+#export DH_VERBOSE=1
+
+
+.PHONY: build
+build: build-stamp
+build-stamp:
+	dh_testdir
+	PREFIX=/usr ./configure
+	$(MAKE)
+
+.PHONY: install
+install:
+	dh_testdir
+	dh_testroot
+	dh_prep
+	dh_installdirs
+	DESTDIR=$(CURDIR)/debian/nodejs $(MAKE) install
+
+.PHONY: binary
+binary: binary-arch
+
+.PHONY: binary-arch
+binary-arch: install
+	dh_link
+	dh_strip
+	dh_fixperms
+	dh_installdeb
+	dh_shlibdeps
+	dh_gencontrol
+	dh_md5sums
+	dh_builddeb
+
+%:
+	dh  $@

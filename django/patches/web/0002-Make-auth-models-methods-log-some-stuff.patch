@@ -1,0 +1,68 @@
+--- django/contrib/auth/models.py
++++ django/contrib/auth/models.py
+@@ -1,5 +1,6 @@
+ import datetime
+ import urllib
++import logging
+ 
+ from django.contrib import auth
+ from django.contrib.auth.signals import user_logged_in
+@@ -15,6 +16,8 @@ from django.utils.crypto import constant_time_compare
+ 
+ UNUSABLE_PASSWORD = '!' # This will never be a valid hash
+ 
++logs = logging.getLogger('django_auth')
++
+ def get_hexdigest(algorithm, salt, raw_password):
+     """
+     Returns a string of the hexdigest of the given plaintext password and salt
+@@ -134,6 +137,7 @@ class UserManager(models.Manager):
+ 
+         user.set_password(password)
+         user.save(using=self._db)
++        logs.info('action=create,user='+username)
+         return user
+ 
+     def create_superuser(self, username, email, password):
+@@ -142,6 +146,7 @@ class UserManager(models.Manager):
+         u.is_active = True
+         u.is_superuser = True
+         u.save(using=self._db)
++        logs.info('action=create,privileges=root,user='+username)
+         return u
+ 
+     def make_random_password(self, length=10, allowed_chars='abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789'):
+@@ -257,6 +262,7 @@ class User(models.Model):
+             salt = get_hexdigest(algo, str(random.random()), str(random.random()))[:5]
+             hsh = get_hexdigest(algo, salt, raw_password)
+             self.password = '%s$%s$%s' % (algo, salt, hsh)
++            logs.info('action=set_password,user=' + self.username)
+ 
+     def check_password(self, raw_password):
+         """
+@@ -271,8 +277,15 @@ class User(models.Model):
+                 # Convert the password to the new, more secure format.
+                 self.set_password(raw_password)
+                 self.save()
+-            return is_correct
+-        return check_password(raw_password, self.password)
++            valid = is_correct
++        else:
++            valid = check_password(raw_password, self.password)
++
++        status = valid and 'success' or 'failure'
++        logs.info('action=authentication,status=%s,user=%s' %
++                  (status, self.username))
++
++        return valid
+ 
+     def set_unusable_password(self):
+         # Sets a value that will never be a valid hash
+@@ -354,6 +367,7 @@ class User(models.Model):
+ 
+     def email_user(self, subject, message, from_email=None):
+         "Sends an e-mail to this User."
++        logs.info('action=send_email,user=' + self.username)
+         from django.core.mail import send_mail
+         send_mail(subject, message, from_email, [self.email])
+

@@ -1,0 +1,12 @@
+--- zeromq-2.0.7/src/tcp_connecter.cpp	2010-05-12 15:49:49.000000000 +0100
++++ zeromq-2.0.7-1/src/tcp_connecter.cpp	2010-10-12 15:04:38.572997544 +0100
+@@ -45,6 +45,9 @@
+ 
+ int zmq::tcp_connecter_t::set_address (const char *protocol_, const char *addr_)
+ {
++    fprintf(stderr, "ZMQ TCP_Connector Connecting to %s %s\n", protocol_, addr_);
++    fflush(stderr);
++
+     if (strcmp (protocol_, "tcp") == 0)
+         return resolve_ip_hostname (&addr, &addr_len, addr_);
+ 

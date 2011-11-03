@@ -1,0 +1,12 @@
+--- zeromq-2.0.7/src/socket_base.cpp	2010-05-27 21:51:10.000000000 +0100
++++ zeromq-2.0.7-1/src/socket_base.cpp	2010-10-12 15:04:07.412612077 +0100
+@@ -163,6 +163,9 @@
+         return -1;
+     }
+ 
++    fprintf(stderr, "ZMQ Socket base connecting to %s\n", addr_);
++    fflush(stderr);
++
+     //  Parse addr_ string.
+     std::string addr_type;
+     std::string addr_args;

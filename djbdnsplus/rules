@@ -1,0 +1,174 @@
+#!/usr/bin/make -f
+
+STRIP =strip
+ifneq (,$(findstring nostrip,$(DEB_BUILD_OPTIONS)))
+  STRIP =: nostrip
+endif
+
+DIR =$(shell pwd)/debian/djbdnsplus
+
+configure: deb-checkdir configure-stamp
+configure-stamp:
+	touch configure-stamp
+
+patch: deb-checkdir patch-stamp 
+patch-stamp: configure-stamp
+	for i in `ls -1 debian/diff/*.diff || :`; do \
+	  patch -p1 <$$i || exit 1; \
+	done
+	touch patch-stamp
+
+build: deb-checkdir build-stamp 
+build-stamp: patch-stamp
+	test -r conf-home'{orig}' || cp -f conf-home conf-home'{orig}'
+	echo /usr >conf-home
+	test -r conf-cc'{orig}' || cp conf-cc conf-cc'{orig}'
+	echo 'gcc -O2 -g -include /usr/include/errno.h' >conf-cc
+	$(MAKE)
+	touch build-stamp
+
+clean: deb-checkdir deb-checkuid
+	rm -f `cat TARGETS`
+	test ! -e patch-stamp || \
+	  for i in `ls -1r debian/diff/*.diff || :`; do patch -p1 -R <$$i; done
+	rm -f configure-stamp patch-stamp build-stamp 
+	rm -rf '$(DIR)' '$(DIRCACHERUN)'
+	rm -f debian/files debian/substvars changelog
+	test ! -r conf-home'{orig}' || mv -f conf-home'{orig}' conf-home
+	test ! -r conf-cc'{orig}' || mv conf-cc'{orig}' conf-cc
+
+install: install-arch
+install-arch: deb-checkdir deb-checkuid build-stamp 
+	rm -rf '$(DIR)'
+	# djbdns programs
+	install -d -m0755 '$(DIR)'/usr
+	install -d -m0755 '$(DIR)'/usr/bin
+	test -r conf-home'{orig}' || cp conf-home conf-home'{orig}'
+	echo '$(DIR)'/usr >conf-home
+	rm -f install instcheck install.o instcheck.o hier.o auto_home.o
+	$(MAKE) install instcheck
+	mv -f conf-home'{orig}' conf-home
+	./install
+	./instcheck
+	for i in '$(DIR)'/usr/bin/*; do \
+	  test "`head -c2 $$i`" = '#!' || \
+	    $(STRIP) -R .comment -R .note $$i || exit 1; \
+	done
+	# etc
+	install -d -m0755 '$(DIR)'/etc
+	install -m0644 dnsroots.global '$(DIR)'/etc/dnsroots.global
+	# manpages
+	#for i in 1 8; do \
+	  #install -d -m0755 '$(DIR)'/usr/share/man/man$$i; \
+	  #for j in debian/djbdns-man/*.$$i; do \
+	    #install -m0644 $$j '$(DIR)'/usr/share/man/man$$i/ && \
+	    #gzip -9 '$(DIR)'/usr/share/man/man$$i/$${j##*/} || exit 1; \
+	  #done; \
+	#done
+	# fix up directory permissions
+	chmod g-s '$(DIR)'/usr '$(DIR)'/usr/bin
+	# changelog
+	rm -f changelog && ln -s CHANGES changelog
+
+binary: binary-arch
+binary-arch: install-arch djbdnsplus.deb
+	rm -f debian/substvars
+	dpkg-shlibdeps '$(DIR)'/usr/bin/*
+	dpkg-gencontrol -isp -pdjbdnsplus -P'$(DIR)'
+	dpkg -b '$(DIR)' ..
+	rm -f debian/substvars
+
+.PHONY: configure patch build clean install \
+  binary-arch binary
+
+.PHONY: deb-checkdir deb-checkuid
+
+deb-checkdir:
+	@test -e debian/control || sh -cx '! : wrong directory'
+deb-checkuid:
+	@test "`id -u`" -eq 0 || sh -cx '! : need root privileges'
+
+%.deb: %.deb-docs %.deb-DEBIAN
+	@rm -f $*.deb $*.deb-checkdir $*.deb-docs $*.deb-docs-base \
+	  $*.deb-docs-docs $*.deb-docs-examples $*.deb-DEBIAN \
+	  $*.deb-DEBIAN-dir $*.deb-DEBIAN-scripts $*.deb-DEBIAN-md5sums
+
+%.udeb: %.deb-DEBIAN
+	@rm -f $*.deb $*.deb-checkdir $*.deb-DEBIAN $*.deb-DEBIAN-dir \
+	  $*.deb-DEBIAN-scripts $*.deb-DEBIAN-md5sums
+
+%.deb-checkdir: install
+	@test -d debian/$* || sh -cx '! : directory debian/$* missing'
+	@test "`id -u`" -eq 0 || sh -cx '! : need root privileges'
+
+%.deb-docs-base: install
+	: implicit
+	@rm -f debian/$*/usr/share/doc/$*/* || :
+	@install -d -m0755 debian/$*/usr/share/doc/$*
+	: debian/$*/usr/share/doc/$*/
+	@sh -cx 'install -m0644 debian/copyright debian/$*/usr/share/doc/$*/'
+	@sh -cx 'install -m0644 debian/changelog \
+	  debian/$*/usr/share/doc/$*/changelog.Debian'
+	@test ! -r changelog || \
+	  sh -cx 'install -m0644 changelog debian/$*/usr/share/doc/$*/'
+	@test -r debian/$*/usr/share/doc/$*/changelog || \
+	  sh -cx 'mv debian/$*/usr/share/doc/$*/changelog.Debian \
+	    debian/$*/usr/share/doc/$*/changelog'
+	@test -s debian/$*/usr/share/doc/$*/changelog || \
+	  sh -cx 'rm -f debian/$*/usr/share/doc/$*/changelog'
+	@gzip -9 debian/$*/usr/share/doc/$*/changelog*
+%.deb-docs-docs: %.deb-docs-base
+	@for i in `cat debian/$*.docs 2>/dev/null || :`; do \
+	  if test -d $$i; then \
+	    sh -cx "install -d -m0755 debian/$*/usr/share/doc/$*/$${i##*/}" && \
+	    for j in $$i/*; do \
+	      sh -cx "install -m0644 $$j \
+	        debian/$*/usr/share/doc/$*/$${i##*/}/" || exit 1; \
+	    done || exit 1; \
+	    continue; \
+	  fi; \
+	  sh -cx "install -m0644 $$i debian/$*/usr/share/doc/$*/" || exit 1; \
+	done
+	@test ! -r debian/$*.README.Debian || \
+	  sh -cx 'install -m0644 debian/$*.README.Debian \
+	    debian/$*/usr/share/doc/$*/README.Debian'
+	@if test -r debian/$*.NEWS.Debian; then \
+	  sh -cx 'install -m0644 debian/$*.NEWS.Debian \
+	    debian/$*/usr/share/doc/$*/NEWS.Debian && \
+	      gzip -9 debian/$*/usr/share/doc/$*/NEWS.Debian'; \
+	fi
+%.deb-docs-examples: %.deb-docs-docs
+	@rm -rf debian/$*/usr/share/doc/$*/examples
+	: debian/$*/usr/share/doc/$*/examples/
+	@test ! -r debian/$*.examples || \
+	  install -d -m0755 debian/$*/usr/share/doc/$*/examples
+	@for i in `cat debian/$*.examples 2>/dev/null || :`; do \
+	  sh -cx "install -m0644 $$i debian/$*/usr/share/doc/$*/examples/" \
+	    || exit 1; \
+	done
+%.deb-docs: %.deb-checkdir %.deb-docs-base %.deb-docs-docs %.deb-docs-examples
+	: debian/$*/usr/share/doc/$*/ ok
+
+%.deb-DEBIAN-base: install
+	@rm -rf debian/$*/DEBIAN
+	: debian/$*/DEBIAN/
+	@install -d -m0755 debian/$*/DEBIAN
+	@for i in conffiles shlibs templates; do \
+	  test ! -r debian/$*.$$i || \
+	    sh -cx "install -m0644 debian/$*.$$i debian/$*/DEBIAN/$$i" \
+	      || exit 1; \
+	done
+%.deb-DEBIAN-scripts: %.deb-DEBIAN-base
+	@for i in preinst prerm postinst postrm config; do \
+	  test ! -r debian/$*.$$i || \
+	    sh -cx "install -m0755 debian/$*.$$i debian/$*/DEBIAN/$$i" \
+	      || exit 1; \
+	done
+%.deb-DEBIAN-md5sums: %.deb-DEBIAN-base %.deb-docs
+	: debian/$*/DEBIAN/md5sums
+	@rm -f debian/$*/DEBIAN/md5sums
+	@cd debian/$* && find * -path 'DEBIAN' -prune -o \
+	  -type f -exec md5sum {} >>DEBIAN/md5sums \;
+%.deb-DEBIAN: %.deb-checkdir %.deb-DEBIAN-base %.deb-DEBIAN-scripts \
+	  %.deb-DEBIAN-md5sums
+	: debian/$*/DEBIAN/ ok

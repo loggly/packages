@@ -1,0 +1,29 @@
+--- django/http/__init__.py	2010-01-23 15:13:00.000000000 -0800
++++ django/http/__init__.py.new	2010-05-11 11:02:52.000000000 -0700
+@@ -47,11 +47,14 @@
+         # We try three options, in order of decreasing preference.
+         if 'HTTP_X_FORWARDED_HOST' in self.META:
+             host = self.META['HTTP_X_FORWARDED_HOST']
++            host = host.split(',')[-1].strip()
+         elif 'HTTP_HOST' in self.META:
+             host = self.META['HTTP_HOST']
++            host = host.split(',')[-1].strip()
+         else:
+             # Reconstruct the host using the algorithm from PEP 333.
+             host = self.META['SERVER_NAME']
++            host = host.split(',')[-1].strip()
+             server_port = str(self.META['SERVER_PORT'])
+             if server_port != (self.is_secure() and '443' or '80'):
+                 host = '%s:%s' % (host, server_port)
+
+--- django/contrib/auth/views.py	2009-10-26 17:36:34.000000000 -0700
++++ django/contrib/auth/views.py	2010-05-11 11:53:08.000000000 -0700
+@@ -115,7 +115,7 @@
+             opts['use_https'] = request.is_secure()
+             opts['token_generator'] = token_generator
+             if is_admin_site:
+-                opts['domain_override'] = request.META['HTTP_HOST']
++                opts['domain_override'] = request.META['HTTP_HOST'].split(',')[-1].strip()
+             else:
+                 opts['email_template_name'] = email_template_name
+                 if not Site._meta.installed:

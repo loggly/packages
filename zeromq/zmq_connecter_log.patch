@@ -1,0 +1,12 @@
+--- zeromq-2.0.7/src/zmq_connecter.cpp	2010-01-29 14:20:34.000000000 +0000
++++ zeromq-2.0.7-1/src/zmq_connecter.cpp	2010-10-12 15:12:53.197506208 +0100
+@@ -82,6 +82,9 @@
+     rm_fd (handle);
+     handle_valid = false;
+ 
++    fprintf(stderr, "ZMQ Connector Connecting to %s\n", address.c_str());
++    fflush(stderr);
++
+     //  Handle the error condition by attempt to reconnect.
+     if (fd == retired_fd) {
+         tcp_connecter.close ();

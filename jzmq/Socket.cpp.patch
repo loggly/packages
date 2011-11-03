@@ -1,0 +1,13 @@
+--- jzmq-2.0.7/src/Socket.cpp	2010-06-05 14:11:29.000000000 +0100
++++ /opt/loggly/backend/jzmq-2.0.7/src/Socket.cpp	2010-10-04 16:31:43.038874382 +0100
+@@ -213,6 +213,10 @@
+     }
+ 
+     const char *c_addr = env->GetStringUTFChars (addr, NULL);
++    fprintf(stderr, "JZMQ Socket::connect Connecting to %s\n", c_addr);
++    fflush(stderr);
++    
++    
+     if (c_addr == NULL) {
+         raise_exception (env, EINVAL);
+         return;

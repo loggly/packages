@@ -1,0 +1,8 @@
+PREFIX=/opt/elasticsearch
+
+build:
+	echo "Nothing to to; binary package"
+
+install:
+	install -d $(DESTDIR)$(PREFIX)
+	rsync -rtv --exclude work --exclude inux-x86-32 . $(DESTDIR)$(PREFIX)

@@ -1,0 +1,28 @@
+--- django/contrib/auth/views.py
++++ django/contrib/auth/views.py
+@@ -151,7 +151,7 @@ def password_reset(request, is_admin_site=False,
+                 'request': request,
+             }
+             if is_admin_site:
+-                opts = dict(opts, domain_override=request.META['HTTP_HOST'])
++                opts = dict(opts, domain_override=request.META['HTTP_HOST'].split(',')[-1].strip())
+             form.save(**opts)
+             return HttpResponseRedirect(post_reset_redirect)
+     else:
+--- django/http/__init__.py
++++ django/http/__init__.py
+@@ -155,11 +155,14 @@ class HttpRequest(object):
+         # We try three options, in order of decreasing preference.
+         if 'HTTP_X_FORWARDED_HOST' in self.META:
+             host = self.META['HTTP_X_FORWARDED_HOST']
++            host = host.split(',')[-1].strip()
+         elif 'HTTP_HOST' in self.META:
+             host = self.META['HTTP_HOST']
++            host = host.split(',')[-1].strip()
+         else:
+             # Reconstruct the host using the algorithm from PEP 333.
+             host = self.META['SERVER_NAME']
++            host = host.split(',')[-1].strip()
+             server_port = str(self.META['SERVER_PORT'])
+             if server_port != (self.is_secure() and '443' or '80'):
+                 host = '%s:%s' % (host, server_port)

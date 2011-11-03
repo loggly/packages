@@ -1,0 +1,9 @@
+
+PREFIX=/opt/activemq
+
+build:
+	echo "Nothing to to; binary package"
+
+install:
+	install -d $(DESTDIR)$(PREFIX)
+	rsync -rtv --exclude  linux-x86-32 . $(DESTDIR)$(PREFIX)
